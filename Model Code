@@ -1,12 +1,24 @@
 import pandas as pd
 import numpy as np
 import yfinance as yf
-#IMPORTANT TO REMEMBER: I cannot have the model predict today's price change using today's volume --- i can only use the data which I had before today. Prices to predict are close prices, not high,low, or open!
+#IMPORTANT REMINDER: I cannot have the model predict today's price change using today's volume --- i can only use the data which I had before today. Prices to predict are close prices, not high,low, or open!
 #Columns which has a name starting with "!" are columns which CANNOT be given to the model in predicting prices.
 #Idea: Can also one-hot encode for crossovers
 #An important concept to note throughout the course of this project is that the model is not able to cross-compare between metrics, thus any possible correlation must be spoon-fed. It is also worth noting that the model cannot put things into context, metrics have to be put into a percentage with little undesirable drift over time. (e.g. if i feed it OHLC< predictions will take after more recent price action, because open, high, low, and close prices now are more like those in 2025 than those in 1995.
-OHLC_data = yf.download("JNJ", start = "1995-01-01", end = "2025-01-01").reset_index()
+#To avoid logical errors, I will call .dropna() as soon as NaN values are present
+#Remember not to feed non-contextual data into ML model (e.g. never feed raw OHLC data or raw SMA data, but feed RELATIVE data --- not 38.50 price data but 3% up from last week pricce data. Not 5028000 shares traded on Friday type of volume data, but 14% higher volume as compared to monthly average type of data.
+#^^^ The above is obvious because more recent data will have higher everything --- higher price, higher volume, higher volatility etc. Thus make everything in relative percentages so that model will not be affected by magnitude drifts over time.
+startDate = "2020-01-01"
+endDate = "2023-01-01"
+ticker = "NVDA"
+OHLC_data = yf.download(ticker, start = startDate, end = endDate).reset_index()
+Emini500 = yf.download("ES=F",start = startDate, end = endDate, interval = "1d").reset_index()
 OHLC_data.columns = OHLC_data.columns.get_level_values(0)
+Emini500.columns = Emini500.columns.get_level_values(0)
+Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini["Open"]+Emini["Close"])/2)
+Emini500["Emini_%Change"] = (Emini500["Close"]-Emini500["Open"])/Emini500["Open"]
+Emini500.drop(columns=["High","Low","Open","Close"], inplace=True)
+OHLC_data = pd.merge(OHLC_data, Emini500, on = "Date", how = "inner")
 OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
 OHLC_data.dropna(inplace = True)
 OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"] #This is the target variable
@@ -26,14 +38,33 @@ def xDMA_column(x):
             cumSumPrc = 0
             cumSumVol = 0
             for i in range(0,x):
-                cumSumPrc += (OHLC_data.iloc[index-i,1]+OHLC_data.iloc[index-1,4])/2
+                cumSumPrc += (OHLC_data.iloc[index-i,1]+OHLC_data.iloc[index-i,4])/2
                 cumSumVol += OHLC_data.iloc[index-i, 5]
             PrcMA = cumSumPrc/x
             VolMA = cumSumVol/x
             OHLC_data.iloc[index,columnIndexPrc] = row["Close"]/PrcMA
             OHLC_data.iloc[index, columnIndexVol] = row["Volume"]/VolMA
+            
+def checkForCrossover(metric1, metric2, rowIndex): #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
+    if rowIndex == 0:
+        return
+    else:
+        initialState = 3 #As an indicator of which is initially higher. 3 is if 1 is initially higher (slightly confusing but this is so that i can reduce the number of if statements later on
+        if OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric1)] < OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric2)]:
+            initialState = 2
+        if OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)] < OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]:
+            return (2-initialState)
+        elif OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)] > OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]:
+            return (3-initialState)#pretty cool
+        else:
+            return 0
 
-for j in range(1, 5):
+for j in range(3,5):
     xDMA_column(j**2)
 OHLC_data.dropna(inplace=True)
-    
+OHLC_data=OHLC_data.reset_index()
+OHLC_data.drop(columns=["index"], inplace=True)
+
+OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","PriceTo16Day_SMA",i) for i in range(len(OHLC_data))]
+OHLC_data.dropna(inplace=True)
+#core OHLC data for core stock (not E-mini) is not made relative. Once feature engineering is complete, remember to delete all non-relative columns before feeding into model
