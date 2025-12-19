@@ -15,9 +15,13 @@ OHLC_data = yf.download(ticker, start = startDate, end = endDate).reset_index()
 Emini500 = yf.download("ES=F",start = startDate, end = endDate, interval = "1d").reset_index()
 OHLC_data.columns = OHLC_data.columns.get_level_values(0)
 Emini500.columns = Emini500.columns.get_level_values(0)
-Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini["Open"]+Emini["Close"])/2)
+Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini500["Open"]+Emini500["Close"])/2)
 Emini500["Emini_%Change"] = (Emini500["Close"]-Emini500["Open"])/Emini500["Open"]
-Emini500.drop(columns=["High","Low","Open","Close"], inplace=True)
+Emini500 = Emini500.rename(columns = {"Open" : "Emini_Open",
+                                      "Close": "Emini_Close",
+                                      "High": "Emini_High",
+                                      "Low":"Emini_Low",
+                                      "Volume":"Emini_Volume"})
 OHLC_data = pd.merge(OHLC_data, Emini500, on = "Date", how = "inner")
 OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
 OHLC_data.dropna(inplace = True)
@@ -45,17 +49,30 @@ def xDMA_column(x):
             OHLC_data.iloc[index,columnIndexPrc] = row["Close"]/PrcMA
             OHLC_data.iloc[index, columnIndexVol] = row["Volume"]/VolMA
             
-def checkForCrossover(metric1, metric2, rowIndex): #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
+def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
+    #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
+    if metric1Multiplier:
+        metric1MultiplierPrev = OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric1Multiplier)]
+        metric1MultiplierNow = OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1Multiplier)]
+    else:
+        metric1MultiplierPrev = 1
+        metric1MultiplierNow = 1
+    if metric2Multiplier:
+        metric2MultiplierPrev = OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric2Multiplier)]
+        metric2MultiplierNow = OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric2Multiplier)]
+    else:
+        metric2MultiplierPrev = 1
+        metric2MultiplierNow = 1
     if rowIndex == 0:
         return
     else:
         initialState = 3 #As an indicator of which is initially higher. 3 is if 1 is initially higher (slightly confusing but this is so that i can reduce the number of if statements later on
-        if OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric1)] < OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric2)]:
+        if OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric1)]*metric1MultiplierPrev < OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric2)]*metric2MultiplierPrev:
             initialState = 2
-        if OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)] < OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]:
+        if OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)]*metric1MultiplierNow < OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]*metric2MultiplierNow:
             return (2-initialState)
-        elif OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)] > OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]:
-            return (3-initialState)#pretty cool
+        elif OHLC_data.iloc[rowIndex, OHLC_data.columns.get_loc(metric1)]*metric1MultiplierNow > OHLC_data.iloc[rowIndex,OHLC_data.columns.get_loc(metric2)]*metric2MultiplierNow:
+            return (3-initialState)    #ngl i really like this maths
         else:
             return 0
 
@@ -65,6 +82,6 @@ OHLC_data.dropna(inplace=True)
 OHLC_data=OHLC_data.reset_index()
 OHLC_data.drop(columns=["index"], inplace=True)
 
-OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","PriceTo16Day_SMA",i) for i in range(len(OHLC_data))]
+OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","PriceTo16Day_SMA",i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
 OHLC_data.dropna(inplace=True)
-#core OHLC data for core stock (not E-mini) is not made relative. Once feature engineering is complete, remember to delete all non-relative columns before feeding into model
+#data for core stock (not E-mini) has yet to be made relative. Make all these relative my comparing and then using percentages (e.g. use price%aboveSMA instead
