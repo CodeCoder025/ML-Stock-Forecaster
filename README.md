@@ -7,3 +7,6 @@ Stock data taken from yahoofinance Python library. However i cannot find a free 
 
 Cheers,
 12/10/25 me
+
+
+STATUS:  INCOMPLETE
