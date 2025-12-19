@@ -27,27 +27,19 @@ OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
 OHLC_data.dropna(inplace = True)
 OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"] #This is the target variable
 
-def xDMA_column(x):
-    columnNamePrc = "PriceTo%sDay_SMA"%x
-    columnNameVol = "VolumeTo%sDay_SMA"%x
-    OHLC_data[columnNameVol] = None
-    OHLC_data[columnNamePrc] = None
-    columnIndexPrc = OHLC_data.columns.get_loc(columnNamePrc)
-    columnIndexVol = OHLC_data.columns.get_loc(columnNameVol)
-    initial_rows, _ = OHLC_data.shape
+def xDMA_column(columnName,x): #it is important to remember that the result returned by this is the RATIO of the metric type to the moving average. It returns a ratio, not a raw/absolute value
+    newColumnName = "%sTo%sDay_SMA"%(columnName,x)
+    OHLC_data[newColumnName] = None
+    newColumnIndex = OHLC_data.columns.get_loc(newColumnName)
     for index, row in OHLC_data.iterrows():
         if index < x:
             continue
         else:
-            cumSumPrc = 0
-            cumSumVol = 0
+            cumSum = 0
             for i in range(0,x):
-                cumSumPrc += (OHLC_data.iloc[index-i,1]+OHLC_data.iloc[index-i,4])/2
-                cumSumVol += OHLC_data.iloc[index-i, 5]
-            PrcMA = cumSumPrc/x
-            VolMA = cumSumVol/x
-            OHLC_data.iloc[index,columnIndexPrc] = row["Close"]/PrcMA
-            OHLC_data.iloc[index, columnIndexVol] = row["Volume"]/VolMA
+                cumSum += OHLC_data.iloc[index-i, OHLC_data.columns.get_loc(columnName)]
+            MA = cumSum/x
+            OHLC_data.iloc[index,newColumnIndex] = row[columnName]/MA
             
 def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
     #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
@@ -77,11 +69,12 @@ def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metr
             return 0
 
 for j in range(3,5):
-    xDMA_column(j**2)
+    xDMA_column("Volume",j**2)
+    xDMA_column("Close",j**2)
 OHLC_data.dropna(inplace=True)
 OHLC_data=OHLC_data.reset_index()
 OHLC_data.drop(columns=["index"], inplace=True)
 
-OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","PriceTo16Day_SMA",i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
+OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","CloseTo16Day_SMA",i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
 OHLC_data.dropna(inplace=True)
-#data for core stock (not E-mini) has yet to be made relative. Make all these relative my comparing and then using percentages (e.g. use price%aboveSMA instead
+#data for core stock (not E-mini) has yet to be made relative. Make all these relative my comparing and then using percentages (e.g. use price%aboveSMA instead)
