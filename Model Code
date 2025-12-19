@@ -68,13 +68,25 @@ def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metr
         else:
             return 0
 
+def configureDateData():
+    OHLC_data["Date"] = pd.to_datetime(OHLC_data["Date"])
+    OHLC_data["Month"] = OHLC_data["Date"].dt.month
+    OHLC_data["DayOfMonth"] = OHLC_data["Date"].dt.day
+    OHLC_data["Day"] = OHLC_data["Date"].dt.dayofweek
+
 for j in range(3,5):
     xDMA_column("Volume",j**2)
     xDMA_column("Close",j**2)
+    xDMA_column("Emini_Close",j**2)
+    
 OHLC_data.dropna(inplace=True)
 OHLC_data=OHLC_data.reset_index()
 OHLC_data.drop(columns=["index"], inplace=True)
+configureDateData()
 
-OHLC_data["Price-16D_crossover"] = [checkForCrossover("Close","CloseTo16Day_SMA",i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
+for j in range(3,5):
+    OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
+    OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
+
 OHLC_data.dropna(inplace=True)
-#data for core stock (not E-mini) has yet to be made relative. Make all these relative my comparing and then using percentages (e.g. use price%aboveSMA instead)
+trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
