@@ -89,4 +89,16 @@ for j in range(3,5):
     OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
 
 OHLC_data.dropna(inplace=True)
-trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
+from sklearn import preprocessing
+encoder = preprocessing.OneHotEncoder()
+categoricalFeatures = ["Month","Day","DayOfMonth"]
+for feature in categoricalFeatures:
+    encoder.fit(OHLC_data[[feature]])
+    oneHotOrder = encoder.categories_
+    oneHotOrder = ["%s_%s"%(feature, i) for i in oneHotOrder[0]]
+    oneHotDF = pd.DataFrame(encoder.transform(OHLC_data[[feature]]).toarray(), columns = oneHotOrder)
+    OHLC_data = OHLC_data.reset_index()
+    OHLC_data.drop(columns=["index"],inplace=True)
+    OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
+
+trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
