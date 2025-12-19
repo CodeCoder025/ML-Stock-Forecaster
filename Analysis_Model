@@ -1,1 +1,9 @@
+**Linear Regression Model**
+___________________________
+linearRegModel.score(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
 
+Stock:    Years of Data:    Dataset:    Score (5d.p.):
+JNJ       5                 V1          0.06674
+KO        5                 V1          0.08495
+GOOG      5                 V1          0.06147
+EPD       5                 V1          0.10548
