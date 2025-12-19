@@ -1,1 +1,7 @@
-
+weightsDict = dict(zip(linearRegModel.coef_,[i for i in trainData.columns.to_list() if i != "%changeTomorrow"]))
+sortedWeightsList = sorted([abs(i) for i in linearRegModel.coef_.tolist()])
+weightsDict = {key:weightsDict.get(key) for key in sortedWeightsList} #issue here is that im taking absolute values to sort, so when i try to retrieve the value from the absolute key, it may not work since key is no longer the same
+weightsDict = {value:key for key, value in weightsDict.items()}
+import matplotlib.pyplot as plt
+plt.bar([key for key,_ in weightsDict.items()],[value for _,value in weightsDict.items()])
+plt.show()
