@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import yfinance as yf
+from sklearn import preprocessing
 #IMPORTANT REMINDER: I cannot have the model predict today's price change using today's volume --- i can only use the data which I had before today. Prices to predict are close prices, not high,low, or open!
 #Columns which has a name starting with "!" are columns which CANNOT be given to the model in predicting prices.
 #Idea: Can also one-hot encode for crossovers
@@ -8,26 +9,29 @@ import yfinance as yf
 #To avoid logical errors, I will call .dropna() as soon as NaN values are present
 #Remember not to feed non-contextual data into ML model (e.g. never feed raw OHLC data or raw SMA data, but feed RELATIVE data --- not 38.50 price data but 3% up from last week pricce data. Not 5028000 shares traded on Friday type of volume data, but 14% higher volume as compared to monthly average type of data.
 #^^^ The above is obvious because more recent data will have higher everything --- higher price, higher volume, higher volatility etc. Thus make everything in relative percentages so that model will not be affected by magnitude drifts over time.
-startDate = "2020-01-01"
-endDate = "2023-01-01"
-ticker = "NVDA"
-OHLC_data = yf.download(ticker, start = startDate, end = endDate).reset_index()
-Emini500 = yf.download("ES=F",start = startDate, end = endDate, interval = "1d").reset_index()
-OHLC_data.columns = OHLC_data.columns.get_level_values(0)
-Emini500.columns = Emini500.columns.get_level_values(0)
-Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini500["Open"]+Emini500["Close"])/2)
-Emini500["Emini_%Change"] = (Emini500["Close"]-Emini500["Open"])/Emini500["Open"]
-Emini500 = Emini500.rename(columns = {"Open" : "Emini_Open",
-                                      "Close": "Emini_Close",
-                                      "High": "Emini_High",
-                                      "Low":"Emini_Low",
-                                      "Volume":"Emini_Volume"})
-OHLC_data = pd.merge(OHLC_data, Emini500, on = "Date", how = "inner")
-OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
-OHLC_data.dropna(inplace = True)
-OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"] #This is the target variable
 
-def xDMA_column(columnName,x): #it is important to remember that the result returned by this is the RATIO of the metric type to the moving average. It returns a ratio, not a raw/absolute value
+def handleOHLC(ticker,startDate = "2020-01-01", endDate = "2023-01-01"):
+  startDate = startDate
+  endDate = endDate
+  ticker = ticker
+  OHLC_data = yf.download(ticker, start = startDate, end = endDate).reset_index()
+  Emini500 = yf.download("ES=F",start = startDate, end = endDate, interval = "1d").reset_index()
+  OHLC_data.columns = OHLC_data.columns.get_level_values(0)
+  Emini500.columns = Emini500.columns.get_level_values(0)
+  Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini500["Open"]+Emini500["Close"])/2)
+  Emini500["Emini_%Change"] = (Emini500["Close"]-Emini500["Open"])/Emini500["Open"]
+  Emini500 = Emini500.rename(columns = {"Open" : "Emini_Open",
+                                        "Close": "Emini_Close",
+                                        "High": "Emini_High",
+                                        "Low":"Emini_Low",
+                                        "Volume":"Emini_Volume"})
+  OHLC_data = pd.merge(OHLC_data, Emini500, on = "Date", how = "inner")
+  OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
+  OHLC_data.dropna(inplace = True)
+  OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"] #This is the target variable
+  return OHLC_data
+
+def xDMA_column(columnName,x, OHLC_data): #it is important to remember that the result returned by this is the RATIO of the metric type to the moving average. It returns a ratio, not a raw/absolute value
     newColumnName = "%sTo%sDay_SMA"%(columnName,x)
     OHLC_data[newColumnName] = None
     newColumnIndex = OHLC_data.columns.get_loc(newColumnName)
@@ -41,7 +45,7 @@ def xDMA_column(columnName,x): #it is important to remember that the result retu
             MA = cumSum/x
             OHLC_data.iloc[index,newColumnIndex] = row[columnName]/MA
             
-def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
+def checkForCrossover(metric1, metric2, rowIndex, OHLC_data,metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
     #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
     if metric1Multiplier:
         metric1MultiplierPrev = OHLC_data.iloc[rowIndex-1, OHLC_data.columns.get_loc(metric1Multiplier)]
@@ -68,37 +72,38 @@ def checkForCrossover(metric1, metric2, rowIndex, metric1Multiplier = None, metr
         else:
             return 0
 
-def configureDateData():
+def configureDateData(OHLC_data):
     OHLC_data["Date"] = pd.to_datetime(OHLC_data["Date"])
     OHLC_data["Month"] = OHLC_data["Date"].dt.month
     OHLC_data["DayOfMonth"] = OHLC_data["Date"].dt.day
     OHLC_data["Day"] = OHLC_data["Date"].dt.dayofweek
 
-for j in range(3,5):
-    xDMA_column("Volume",j**2)
-    xDMA_column("Close",j**2)
-    xDMA_column("Emini_Close",j**2)
-    
-OHLC_data.dropna(inplace=True)
-OHLC_data=OHLC_data.reset_index()
-OHLC_data.drop(columns=["index"], inplace=True)
-configureDateData()
+def implementIndicators(OHLC_data):
+  for j in range(3,5):
+      xDMA_column("Volume",j**2,OHLC_data)
+      xDMA_column("Close",j**2,OHLC_data)
+      xDMA_column("Emini_Close",j**2,OHLC_data)
+  OHLC_data.dropna(inplace=True)
+  OHLC_data=OHLC_data.reset_index()
+  OHLC_data.drop(columns=["index"], inplace=True)
+  configureDateData(OHLC_data)
 
-for j in range(3,5):
-    OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, metric2Multiplier = "Close") for i in range(len(OHLC_data))]
-    OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
+  for j in range(3,5):
+      OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, OHLC_data,metric2Multiplier = "Close") for i in range(len(OHLC_data))]
+      OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i,OHLC_data, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
 
-OHLC_data.dropna(inplace=True)
-from sklearn import preprocessing
-encoder = preprocessing.OneHotEncoder()
-categoricalFeatures = ["Month","Day","DayOfMonth"]
-for feature in categoricalFeatures:
-    encoder.fit(OHLC_data[[feature]])
-    oneHotOrder = encoder.categories_
-    oneHotOrder = ["%s_%s"%(feature, i) for i in oneHotOrder[0]]
-    oneHotDF = pd.DataFrame(encoder.transform(OHLC_data[[feature]]).toarray(), columns = oneHotOrder)
-    OHLC_data = OHLC_data.reset_index()
-    OHLC_data.drop(columns=["index"],inplace=True)
-    OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
+  OHLC_data.dropna(inplace=True)
+  encoder = preprocessing.OneHotEncoder()
+  categoricalFeatures = ["Month","Day","DayOfMonth"]
+  for feature in categoricalFeatures:
+      encoder.fit(OHLC_data[[feature]])
+      oneHotOrder = encoder.categories_
+      oneHotOrder = ["%s_%s"%(feature, i) for i in oneHotOrder[0]]
+      oneHotDF = pd.DataFrame(encoder.transform(OHLC_data[[feature]]).toarray(), columns = oneHotOrder)
+      OHLC_data = OHLC_data.reset_index()
+      OHLC_data.drop(columns=["index"],inplace=True)
+      OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
 
-trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
+  trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
+
+implementIndicators(handleOHLC("JNJ"))
