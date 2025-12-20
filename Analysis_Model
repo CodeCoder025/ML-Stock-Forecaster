@@ -2,8 +2,8 @@
 ___________________________
 linearRegModel.score(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
 
-Stock:    Years of Data:    Dataset:    Score (5d.p.):
-JNJ       5                 V1          0.06674
-KO        5                 V1          0.08495
-GOOG      5                 V1          0.06147
-EPD       5                 V1          0.10548
+Stock:    Years of Data:    Dataset:    LinReg RMSE Score (5d.p.):    RandFor RMSE Score (5d.p.):    Mean Target Value:
+JNJ       5                 V1          0.00913                       0.00951                        0.00679
+KO        5                 V1          0.00960                       0.01003                        0.00649
+GOOG      5                 V1          0.01341                       0.01418                        0.01009
+EPD       5                 V1          0.01385                       0.01393                        0.00945
