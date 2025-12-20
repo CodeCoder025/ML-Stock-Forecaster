@@ -1,10 +1,12 @@
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import RandomForestRegressor
 
 def scaleData(trainingData):
-  minMaxScaler = MinMaxScaler(feature_range=(0,1))
-  scaledTrainData = pd.DataFrame(minMaxScaler.fit_transform(trainingData.drop(columns=["%changeTomorrow"])), columns = [i for i in trainingData.columns.to_list() if i != "%changeTomorrow"])
-  return scaledTrainData
+    minMaxScaler = MinMaxScaler(feature_range=(0,1))
+    scaledTrainData = pd.DataFrame(minMaxScaler.fit_transform(trainingData.drop(columns=["%changeTomorrow"])), columns = [i for i in trainingData.columns.to_list() if i != "%changeTomorrow"])
+    scaledTrainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
+    return scaledTrainData
 
 def chronologicalSplit(scaledTrainData,x, nRows):
   trainingRows = int(x*nRows)
@@ -12,14 +14,25 @@ def chronologicalSplit(scaledTrainData,x, nRows):
   testSet = scaledTrainData.loc[trainingRows+1:]
   return trainingSet, testSet
 
-def deployLinearModel(trainData, testData, trainingData):
-  trainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
-  testData["%changeTomorrow"] = trainingData["%changeTomorrow"]
+def deployLinearModel(trainData, testData):
   linearRegModel = LinearRegression()
   linearRegModel.fit(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
   linearRegModelPreds =  linearRegModel.predict(testData.drop(columns=["%changeTomorrow"]))
   return linearRegModelPreds, linearRegModel.coef_, linearRegModel.intercept_
 
+def deployRandomForest(trainData, testData, bootstrapSize = 0.7, n_dTrees = 150, max_leaf_nodes = 200, max_features = "sqrt"):
+    model = RandomForestRegressor(n_jobs=-1,
+                                  max_samples = bootstrapSize,
+                                  n_estimators = n_dTrees,
+                                  max_leaf_nodes = max_leaf_nodes,
+                                  max_features = max_features)
+    model.fit(trainData.drop(columns=["%changeTomorrow"]),
+              trainData["%changeTomorrow"])
+    randomForestPreds = model.predict(testData.drop(columns=["%changeTomorrow"]))
+    return randomForestPreds, model.feature_importances_
+              
+
 trainingData = implementIndicators(handleOHLC("JNJ"))
 nRows, nCols = trainingData.shape
-linearRegModelPreds, linearRegModelCoefs, LinearRegModelIntercept = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows), trainingData)
+linearRegModelPreds, linearRegModelCoefs, LinearRegModelIntercept = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
+randomForestPreds, randomForestWeights = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
