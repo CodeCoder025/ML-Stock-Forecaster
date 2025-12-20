@@ -1,7 +1,7 @@
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor
-
+from sklearn.metrics import accuracy_score
 def scaleData(trainingData):
     minMaxScaler = MinMaxScaler(feature_range=(0,1))
     scaledTrainData = pd.DataFrame(minMaxScaler.fit_transform(trainingData.drop(columns=["%changeTomorrow"])), columns = [i for i in trainingData.columns.to_list() if i != "%changeTomorrow"])
@@ -18,7 +18,7 @@ def deployLinearModel(trainData, testData):
   linearRegModel = LinearRegression()
   linearRegModel.fit(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
   linearRegModelPreds =  linearRegModel.predict(testData.drop(columns=["%changeTomorrow"]))
-  return linearRegModelPreds, linearRegModel.coef_, linearRegModel.intercept_
+  return linearRegModelPreds, linearRegModel.coef_, linearRegModel.intercept_, compute_RMSE(linearRegModelPreds, testData["%changeTomorrow"])
 
 def deployRandomForest(trainData, testData, bootstrapSize = 0.7, n_dTrees = 150, max_leaf_nodes = 200, max_features = "sqrt"):
     model = RandomForestRegressor(n_jobs=-1,
@@ -29,10 +29,15 @@ def deployRandomForest(trainData, testData, bootstrapSize = 0.7, n_dTrees = 150,
     model.fit(trainData.drop(columns=["%changeTomorrow"]),
               trainData["%changeTomorrow"])
     randomForestPreds = model.predict(testData.drop(columns=["%changeTomorrow"]))
-    return randomForestPreds, model.feature_importances_
-              
+    return randomForestPreds, model.feature_importances_,compute_RMSE(randomForestPreds, testData["%changeTomorrow"])
 
-trainingData = implementIndicators(handleOHLC("JNJ"))
+def compute_RMSE(predicted, actual):
+    SE = 0
+    for i in range(len(predicted)):
+        SE += (predicted[i] - actual.iloc[i])**2
+    return (SE/len(predicted))**0.5
+    
+trainingData = implementIndicators(handleOHLC("KO"))
 nRows, nCols = trainingData.shape
-linearRegModelPreds, linearRegModelCoefs, LinearRegModelIntercept = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
-randomForestPreds, randomForestWeights = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
+linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
+randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
