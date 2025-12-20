@@ -18,7 +18,8 @@ def deployLinearModel(trainData, testData, trainingData):
   linearRegModel = LinearRegression()
   linearRegModel.fit(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
   linearRegModelPreds =  linearRegModel.predict(testData.drop(columns=["%changeTomorrow"]))
+  return linearRegModelPreds, linearRegModel.coef_, linearRegModel.intercept_
 
 trainingData = implementIndicators(handleOHLC("JNJ"))
 nRows, nCols = trainingData.shape
-deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows), trainingData)
+linearRegModelPreds, linearRegModelCoefs, LinearRegModelIntercept = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows), trainingData)
