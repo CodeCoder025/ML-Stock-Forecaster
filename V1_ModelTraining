@@ -9,11 +9,12 @@ def scaleData(trainingData):
     scaledTrainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
     return scaledTrainData
 
-def chronologicalSplit(scaledTrainData,x, nRows):
-  trainingRows = int(x*nRows)
-  trainingSet = scaledTrainData.loc[0:trainingRows]
-  testSet = scaledTrainData.loc[trainingRows+1:]
-  return trainingSet, testSet
+def chronologicalSplit(scaledTrainData,x):
+    nRows, _ = scaledTrainData.shape
+    trainingRows = int(x*nRows)
+    trainingSet = scaledTrainData.loc[0:trainingRows]
+    testSet = scaledTrainData.loc[trainingRows+1:]
+    return trainingSet, testSet
 
 def deployLinearModel(trainData, testData):
   linearRegModel = LinearRegression()
@@ -77,14 +78,14 @@ def RMSEdumb(testData):
 def basicDeploy(ticker, startDate = "2010-01-01", endDate = "2015-01-01"):
     trainingData = implementIndicators(handleOHLC(ticker, startDate, endDate))
     nRows, nCols = trainingData.shape
-    linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
-    randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
-    GBTreePreds, GBTreeWeights, GBTreeScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
-    GBLinPreds, GBLinWeights, GBLinScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows), booster = "gblinear")
+    linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8))
+    randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8))
+    GBTreePreds, GBTreeWeights, GBTreeScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8))
+    GBLinPreds, GBLinWeights, GBLinScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8), booster = "gblinear")
     scores = {"Linear Regression" : linearRegModelScore, "Random Forest": randomForestScore,"Gradient Boosting Tree":GBTreeScore,"Gradient Boosting Linear":GBLinScore}
     weights = {"Linear Regression":linearRegModelCoefs,"Random Forest":randomForestWeights,"Gradient Boosting Tree":GBTreeWeights,"Gradient Boosting Linear":GBLinWeights}
     predictions = {"Linear Regression":linearRegModelPreds,"Random Forest":randomForestPreds,"Gradient Boosting Tree":GBTreePreds,"Gradient Boosting Linear":GBLinPreds}
-    _,testData = chronologicalSplit(scaleData(trainingData),0.8, nRows)
+    _,testData = chronologicalSplit(scaleData(trainingData),0.8)
     return scores, weights, predictions, trainingData, RMSEdumb(testData)
 
 scoreDict, weightsDict, predictionsDict, trainingData, dumbScore = basicDeploy("JNJ")
