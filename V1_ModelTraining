@@ -66,6 +66,14 @@ def compute_RMSE(predicted, actual):
         SE += (predicted[i] - actual.iloc[i])**2
     return (SE/len(predicted))**0.5
 
+def RMSEdumb(testData):
+    meanPred = np.mean([i for i in testData["%changeTomorrow"]])
+    SE = 0
+    for i in testData["%changeTomorrow"]:
+        SE += abs(i - meanPred)**2
+    MSE = SE/len(testData["%changeTomorrow"])
+    return MSE**0.5
+
 def basicDeploy(ticker, startDate = "2010-01-01", endDate = "2015-01-01"):
     trainingData = implementIndicators(handleOHLC(ticker, startDate, endDate))
     nRows, nCols = trainingData.shape
@@ -76,6 +84,7 @@ def basicDeploy(ticker, startDate = "2010-01-01", endDate = "2015-01-01"):
     scores = {"Linear Regression" : linearRegModelScore, "Random Forest": randomForestScore,"Gradient Boosting Tree":GBTreeScore,"Gradient Boosting Linear":GBLinScore}
     weights = {"Linear Regression":linearRegModelCoefs,"Random Forest":randomForestWeights,"Gradient Boosting Tree":GBTreeWeights,"Gradient Boosting Linear":GBLinWeights}
     predictions = {"Linear Regression":linearRegModelPreds,"Random Forest":randomForestPreds,"Gradient Boosting Tree":GBTreePreds,"Gradient Boosting Linear":GBLinPreds}
-    return scores, weights, predictions, trainingData
+    _,testData = chronologicalSplit(scaleData(trainingData),0.8, nRows)
+    return scores, weights, predictions, trainingData, RMSEdumb(testData)
 
-scoreDict, weightsDict, predictionsDict, trainingData = basicDeploy("JNJ")
+scoreDict, weightsDict, predictionsDict, trainingData, dumbScore = basicDeploy("JNJ")
