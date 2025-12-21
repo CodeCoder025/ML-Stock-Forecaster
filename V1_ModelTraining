@@ -58,7 +58,7 @@ def deployGBM(trainData, testData, n_estimators = 100, learning_rate = 0.6, boos
         unzippedDict.insert(i, (trainData.drop(columns=["%changeTomorrow"]).columns.to_list()[i],0))
     weightsDict = dict(unzippedDict)
     weightsList = [i for i in weightsDict.values()]
-    return GBMPreds, weightsDict, compute_RMSE(GBMPreds, testData["%changeTomorrow"])
+    return GBMPreds, weightsList, compute_RMSE(GBMPreds, testData["%changeTomorrow"])
 
 def compute_RMSE(predicted, actual):
     SE = 0
