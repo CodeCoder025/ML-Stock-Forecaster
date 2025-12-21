@@ -76,6 +76,6 @@ def basicDeploy(ticker, startDate = "2010-01-01", endDate = "2015-01-01"):
     scores = {"Linear Regression" : linearRegModelScore, "Random Forest": randomForestScore,"Gradient Boosting Tree":GBTreeScore,"Gradient Boosting Linear":GBLinScore}
     weights = {"Linear Regression":linearRegModelCoefs,"Random Forest":randomForestWeights,"Gradient Boosting Tree":GBTreeWeights,"Gradient Boosting Linear":GBLinWeights}
     predictions = {"Linear Regression":linearRegModelPreds,"Random Forest":randomForestPreds,"Gradient Boosting Tree":GBTreePreds,"Gradient Boosting Linear":GBLinPreds}
-    return scores, weights, predictions
+    return scores, weights, predictions, trainingData
 
-scoreDict, weightsDict, predictionsDict = basicDeploy("JNJ")
+scoreDict, weightsDict, predictionsDict, trainingData = basicDeploy("JNJ")
