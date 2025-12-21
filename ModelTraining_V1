@@ -54,10 +54,20 @@ def compute_RMSE(predicted, actual):
     for i in range(len(predicted)):
         SE += (predicted[i] - actual.iloc[i])**2
     return (SE/len(predicted))**0.5
-    
-trainingData = implementIndicators(handleOHLC("EPD"))
-nRows, nCols = trainingData.shape
-linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
-randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
-GBTreePreds, GBTreeWeights, GBTreeScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
-GBLinPreds, GBLinWeights, GBLinScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows), booster = "gblinear")
+
+def basicDeploy(ticker, startDate = None, endDate=None):
+    if startDate and endDate:
+        trainingData = implementIndicators(handleOHLC(ticker))
+    else:
+        trainingData = implementIndicators(handleOHLC(ticker, startDate = startDate, endDate = endDate))
+    nRows, nCols = trainingData.shape
+    linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8,nRows))
+    randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
+    GBTreePreds, GBTreeWeights, GBTreeScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows))
+    GBLinPreds, GBLinWeights, GBLinScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8, nRows), booster = "gblinear")
+    scores = {"Linear Regression" : linearRegModelScore, "Random Forest": randomForestScore,"Gradient Boosting Tree":GBTreeScore,"Gradient Boosting Linear":GBLinScore}
+    weights = {"Linear Regression":linearRegModelCoefs,"Random Forest":randomForestWeights,"Gradient Boosting Tree":GBTreeWeights,"Gradient Boosting Linear":GBLinWeights}
+    predictions = {"Linear Regression":linearRegModelPreds,"Random Forest":randomForestPreds,"Gradient Boosting Tree":GBTreePreds,"Gradient Boosting Linear":GBLinPreds}
+    return scores, weights, predictions
+
+scoreDict, weightsDict, predictionsDict = basicDeploy("JNJ")
