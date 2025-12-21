@@ -1,19 +1,13 @@
-#Need to do major rewriting to this function such that it is independent on how many models are passed in (i can pass in two random forests with different hyperparameters on the same function call
-
-def weightsAnalysis(metricsList, RMSEScores = None, linearRegWeights = None, randomForestWeights = None, GBMWeights = None):
-    featureGroupedWeights = []
-    weightsListsDict = {"Linear Regression Model" :linearRegWeights,"Random Forest Model": randomForestWeights, "Gradient Boosting Machine":GBMWeights}
-    weightsListsDict = {key:weightsListsDict.get(key) for key, value in weightsListsDict.items() if value is not None}
+def weightsAnalysis(metricsList, weightsDict, scoresDict):
     weightsListsDictFresh = {}
-    for key, value in weightsListsDict.items():
+    for key, value in weightsDict.items():
         try:
             weightsListsDictFresh[key] = value.tolist()
         except AttributeError:
             weightsListsDictFresh[key] = value #i wont have any idea whether it would be a list, or an array being passed through this function.
     returnDict = {}
     returnDict["Model"] = list(weightsListsDictFresh.keys())
-    if RMSEScores is not None:
-        returnDict["RMSE Score"] = RMSEScores
+    returnDict["RMSE Score"] = [i for i in scoresDict.values()]
     for i in range(len(list(weightsListsDictFresh.values())[0])):
         weightsByMetric = []
         for weightsList in weightsListsDictFresh.values():
@@ -21,11 +15,7 @@ def weightsAnalysis(metricsList, RMSEScores = None, linearRegWeights = None, ran
         returnDict[metricsList[i]] = weightsByMetric
     return returnDict
 
-weightsDict = weightsAnalysis(trainingData.drop(columns=["%changeTomorrow"]).columns.to_list(),
-                RMSEScores= [linearRegModelScore, randomForestScore],
-                linearRegWeights = linearRegModelCoefs, 
-                randomForestWeights = randomForestWeights)
-
+weightsDict = weightsAnalysis(trainingData.drop(columns=["%changeTomorrow"]).columns.to_list(), weightsDict, scoreDict)
 #This weight analysis function analyses weights by feature, whereas default weight dictionary displays weights by model.
 
 #Idea:
