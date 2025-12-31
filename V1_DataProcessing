@@ -10,7 +10,7 @@ from sklearn import preprocessing
 #Remember not to feed non-contextual data into ML model (e.g. never feed raw OHLC data or raw SMA data, but feed RELATIVE data --- not 38.50 price data but 3% up from last week pricce data. Not 5028000 shares traded on Friday type of volume data, but 14% higher volume as compared to monthly average type of data.
 #^^^ The above is obvious because more recent data will have higher everything --- higher price, higher volume, higher volatility etc. Thus make everything in relative percentages so that model will not be affected by magnitude drifts over time.
 
-def handleOHLC(ticker,startDate = "2020-01-01", endDate = "2023-01-01"):
+def handleOHLC(ticker,startDate,endDate):
   startDate = startDate
   endDate = endDate
   ticker = ticker
@@ -79,23 +79,23 @@ def configureDateData(OHLC_data):
     OHLC_data["Day"] = OHLC_data["Date"].dt.dayofweek
 
 def implementIndicators(OHLC_data):
-  for j in range(3,5):
+    for j in range(3,5):
       xDMA_column("Volume",j**2,OHLC_data)
       xDMA_column("Close",j**2,OHLC_data)
       xDMA_column("Emini_Close",j**2,OHLC_data)
-  OHLC_data.dropna(inplace=True)
-  OHLC_data=OHLC_data.reset_index()
-  OHLC_data.drop(columns=["index"], inplace=True)
-  configureDateData(OHLC_data)
-
-  for j in range(3,5):
+    OHLC_data.dropna(inplace=True)
+    OHLC_data=OHLC_data.reset_index()
+    OHLC_data.drop(columns=["index"], inplace=True)
+    configureDateData(OHLC_data)
+    
+    for j in range(3,5):
       OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, OHLC_data,metric2Multiplier = "Close") for i in range(len(OHLC_data))]
       OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i,OHLC_data, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
-
-  OHLC_data.dropna(inplace=True)
-  encoder = preprocessing.OneHotEncoder()
-  categoricalFeatures = ["Month","Day","DayOfMonth"]
-  for feature in categoricalFeatures:
+    
+    OHLC_data.dropna(inplace=True)
+    encoder = preprocessing.OneHotEncoder()
+    categoricalFeatures = ["Month","Day","DayOfMonth"]
+    for feature in categoricalFeatures:
       encoder.fit(OHLC_data[[feature]])
       oneHotOrder = encoder.categories_
       oneHotOrder = ["%s_%s"%(feature, i) for i in oneHotOrder[0]]
@@ -103,7 +103,6 @@ def implementIndicators(OHLC_data):
       OHLC_data = OHLC_data.reset_index()
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
-
-  trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
-
-implementIndicators(handleOHLC("JNJ"))
+    
+    trainingData = OHLC_data.drop(columns = ["Date","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
+    return trainingData
