@@ -4,9 +4,9 @@ import numpy as np
 def optimizeRF(trainingData):
     nRows, nCols = trainingData.shape
     trainData, testData = chronologicalSplit(scaleData(trainingData), 0.8)
-    n_estimatorList = list(range(50, 400, 5))
-    max_samplesList = np.arange(0.2, 0.9, 0.01) #gotta do this because range() cannot take floats
-    max_leaf_nodeList = list(range(100, 450,5))
+    n_estimatorList = list(range(50, 400, 25))
+    max_samplesList = np.arange(0.2, 0.9, 0.05) #gotta do this because range() cannot take floats
+    max_leaf_nodeList = list(range(100, 450,25))
     n_estimatorsHPlist = []
     max_samplesHPlist = []
     max_leaf_nodesHPlist = []
@@ -28,13 +28,50 @@ def optimizeRF(trainingData):
     bestCombiIndex = RMSElist.index(min(RMSElist))
     fig = plt.figure() #How to make 4-metric plots --- https://chatgpt.com/s/t_6953e151d9988191b7bc7da461e03aa0
     ax = fig.add_subplot(projection = "3d")
-    scatPlot = ax.scatter(max_samplesHPlist, max_leaf_nodesHPlist, RMSElist, c=n_estimatorsHPlist, cmap = "viridis")
-    ax.scatter(max_samplesHPlist[bestCombiIndex],max_leaf_nodesHPlist[bestCombiIndex],RMSElist[bestCombiIndex], color = "green", s=80, marker = "X", label = "OPtimum")
-    ax.set_xlabel("Bootstrap Size")
+    scatPlot = ax.scatter(n_estimatorsHPlist, max_leaf_nodesHPlist, RMSElist,c=max_samplesHPlist, cmap = "viridis")
+    ax.scatter(n_estimatorsHPlist[bestCombiIndex],max_leaf_nodesHPlist[bestCombiIndex],RMSElist[bestCombiIndex], s=80, marker = "X", label = "OPtimum")
+    ax.set_xlabel("n_estimators")
     ax.set_ylabel("Maximum Terminal Nodes")
     ax.set_zlabel("RMSE")
-    plt.colorbar(scatPlot, label = "n_estimators")
+    plt.colorbar(scatPlot, label = "Bootstrap Size")
     plt.show()
     return {"Max Samples" : max_samplesHPlist[bestCombiIndex],"Max Terminal Nodes":max_leaf_nodesHPlist[bestCombiIndex],"n_estimators":n_estimatorsHPlist[bestCombiIndex],"RMSE Score":RMSElist[bestCombiIndex]}
 
+def optimizeGBTree(trainingData, booster = "gbtree"):
+    trainData, testData = chronologicalSplit(scaleData(trainingData), 0.8)
+    bootstrapSizeList = np.arange(0.5,0.9,0.1)
+    n_estimatorsList = list(range(100, 450, 25))
+    learning_rateList = np.arange(0.02,0.42,0.02)
+    n_estimatorsHPlist = []
+    max_samplesHPlist = []
+    learning_rateHPlist = []
+    RMSElist = []
+    x = 0
+    for i in range(len(n_estimatorsList)):
+        for j in range(len(bootstrapSizeList)):
+            for k in range(len(learning_rateList)):
+                n_estimatorsHPlist.append(n_estimatorsList[i])
+                max_samplesHPlist.append(bootstrapSizeList[j])
+                learning_rateHPlist.append(learning_rateList[k])
+                _,_,modelScore = deployGBM(trainData, testData,
+                                           bootstrapSize = bootstrapSizeList[j],
+                                           n_estimators = n_estimatorsList[i],
+                                           learning_rate = learning_rateList[k],
+                                           booster = "gbtree")
+                RMSElist.append(modelScore)
+                x+=1
+                print("Iterations Complete: %s/%s"%(x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
+    bestIndex = RMSElist.index(min(RMSElist))
+    fig = plt.figure()
+    ax = fig.add_subplot(projection = "3d")
+    scat = ax.scatter(n_estimatorsHPlist, learning_rateHPlist,RMSElist, c=max_samplesHPlist, cmap = "viridis")
+    ax.scatter(n_estimatorsHPlist[bestIndex],learning_rateHPlist[bestIndex],RMSElist[bestIndex], marker = "X", label = "Optimum", s= 80)
+    ax.set_xlabel("n_estimators")
+    ax.set_zlabel("RMSE")
+    ax.set_ylabel("Learning Rate")
+    plt.colorbar(scat, label = "Bootstrap Size")
+    plt.show()
+    return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
+
+optimizeGBTree(trainingData)
 tunedDict = optimizeRF(trainingData)
