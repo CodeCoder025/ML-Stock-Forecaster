@@ -5,6 +5,8 @@ Hopefully model will perform better than pervious one, and actually be able to g
 
 Stock data taken from yahoofinance Python library. However i cannot find a free csv dataframe of macroeconomic prospects or non-conventional metrics (TRIN, TICK, E-Mini 500, Fear/Greed index, implied volatility, etc)
 
+Note that code files within the same version are meant to be supplementary to each other, whereas code files of different versions are meant to be REPLACEMENTS of each other.
+
 Cheers,
 12/10/25 me
 
