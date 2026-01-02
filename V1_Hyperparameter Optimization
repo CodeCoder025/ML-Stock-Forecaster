@@ -1,6 +1,9 @@
 #Hyperparameter optimization
 import matplotlib.pyplot as plt
 import numpy as np
+import time
+
+startTime = time.time()
 def optimizeRF(trainingData):
     nRows, nCols = trainingData.shape
     trainData, testData = chronologicalSplit(scaleData(trainingData), 0.8)
@@ -75,3 +78,6 @@ def optimizeGBTree(trainingData, booster = "gbtree"):
 
 optimizeGBTree(trainingData)
 tunedDict = optimizeRF(trainingData)
+timeDiff = float(time.time()) - startTime
+print(tunedDict)
+print("Time Taken for Optimization:        %s Seconds" %timeDiff)
