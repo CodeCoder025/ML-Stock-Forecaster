@@ -15,17 +15,24 @@ def handleOHLC(ticker,startDate,endDate):
     endDate = endDate
     ticker = ticker
     OHLC_data = yf.download(ticker, start = startDate, end = endDate).reset_index()
-    Emini500 = yf.download("ES=F",start = startDate, end = endDate, interval = "1d").reset_index()
+    SnP500 = yf.download("^GSPC",start = startDate, end = endDate, interval = "1d").reset_index()
     OHLC_data.columns = OHLC_data.columns.get_level_values(0)
-    Emini500.columns = Emini500.columns.get_level_values(0)
-    Emini500["Emini_%Spread"] = abs(Emini500["High"]-Emini500["Low"])/((Emini500["Open"]+Emini500["Close"])/2)
-    Emini500["Emini_%Change"] = (Emini500["Close"]-Emini500["Open"])/Emini500["Open"]
-    Emini500 = Emini500.rename(columns = {"Open" : "Emini_Open",
-                                        "Close": "Emini_Close",
-                                        "High": "Emini_High",
-                                        "Low":"Emini_Low",
-                                        "Volume":"Emini_Volume"})
-    OHLC_data = pd.merge(OHLC_data, Emini500, on = "Date", how = "inner")
+    SnP500.columns = SnP500.columns.get_level_values(0)
+    OHLC_data["%changeToday"] = (OHLC_data["Close"] - OHLC_data["Open"])/OHLC_data["Open"]
+    OHLC_data["high%AboveClose"] = (OHLC_data["High"] - OHLC_data["Close"])/OHLC_data["Close"]
+    OHLC_data["high%AboveOpen"] = (OHLC_data["High"]-OHLC_data["Open"])/OHLC_data["Open"]
+    OHLC_data["low%BelowClose"] = (OHLC_data["Close"]-OHLC_data["Low"])/OHLC_data["Close"]
+    OHLC_data["low%BelowOpen"] = (OHLC_data["Open"]-OHLC_data["Low"])/OHLC_data["Open"]
+    OHLC_data["Spread"] = (OHLC_data["High"]-OHLC_data["Low"])/OHLC_data["Low"]
+    OHLC_data["volumeToSpreadRatio"] = OHLC_data["Volume"]/OHLC_data["Spread"] #Sniffs insitutional trading if high vol to spread
+    SnP500["SnP_%Spread"] = abs(SnP500["High"]-SnP500["Low"])/((SnP500["Open"]+SnP500["Close"])/2)
+    SnP500["SnP_%Change"] = (SnP500["Close"]-SnP500["Open"])/SnP500["Open"]
+    SnP500 = SnP500.rename(columns = {"Open" : "SnP_Open",
+                                        "Close": "SnP_Close",
+                                        "High": "SnP_High",
+                                        "Low":"SnP_Low",
+                                        "Volume":"SnP_Volume"})
+    OHLC_data = pd.merge(OHLC_data, SnP500, on = "Date", how = "inner")
     OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
     OHLC_data.dropna(inplace = True)
     OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"]#This is the target variable
@@ -79,17 +86,27 @@ def configureDateData(OHLC_data):
     OHLC_data["DayOfMonth"] = OHLC_data["Date"].dt.day
     OHLC_data["Day"] = OHLC_data["Date"].dt.dayofweek
 
-def getRollingBetas(OHLC_data, daysToRoll):
-    pass
-    #YahooFinance does not provide this data so will have to compute pythonically
-    #When reading up on the formula for calculating beta, the concept of covariance will be come across. To minimize confusion:
-    #Covariance is basically correlation, except that correlation is scaled to fit within the range of -1 to 1. Thus covariance does not give any idea of magnitude, as changing units (e.g. cm to meters) can skew covariance by magnitudes
+def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of data will be sacrificed when .dropna() is called
+    #Idea --- 256DaySum(marketChange*stockChange)/256DaySum(marketChange**2)
+    columnNameRn = "%sDay-RollingBeta"%daysToRoll
+    OHLC_data[columnNameRn] = None
+    for i in range(len(OHLC_data)):
+        if i < daysToRoll:
+            continue
+        else:
+            covarianceSum = 0
+            varianceSum = 0
+            for j in range(daysToRoll):
+                covarianceSum += OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("%changeToday")]*OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("SnP_%Change")]
+                varianceSum += (OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("SnP_%Change")])**2
+            OHLC_data.iloc[i, OHLC_data.columns.get_loc(columnNameRn)] = covarianceSum/varianceSum
+    return OHLC_data.dropna()
 
 def implementIndicators(OHLC_data):
     for j in range(3,5):
       xDMA_column("Volume",j**2,OHLC_data)
       xDMA_column("Close",j**2,OHLC_data)
-      xDMA_column("Emini_Close",j**2,OHLC_data)
+      xDMA_column("SnP_Close",j**2,OHLC_data)
     OHLC_data.dropna(inplace=True)
     OHLC_data=OHLC_data.reset_index()
     OHLC_data.drop(columns=["index"], inplace=True)
@@ -97,7 +114,7 @@ def implementIndicators(OHLC_data):
     
     for j in range(3,5):
       OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, OHLC_data,metric2Multiplier = "Close") for i in range(len(OHLC_data))]
-      OHLC_data["Emini-%sD_crossover"%j**2] = [checkForCrossover("Emini_Close","Emini_CloseTo%sDay_SMA"%j**2,i,OHLC_data, metric2Multiplier = "Emini_Close") for i in range(len(OHLC_data))]
+      OHLC_data["SnP-%sD_crossover"%j**2] = [checkForCrossover("SnP_Close","SnP_CloseTo%sDay_SMA"%j**2,i,OHLC_data, metric2Multiplier = "SnP_Close") for i in range(len(OHLC_data))]
     
     OHLC_data.dropna(inplace=True)
     getRollingBetas(OHLC_data, 252)
@@ -112,7 +129,7 @@ def implementIndicators(OHLC_data):
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
     
-    trainingData = OHLC_data.drop(columns = ["Date","Stock","Day","DayOfMonth","Close","High","Low","Month","Open","Volume","Emini_Close","Emini_Open","Emini_Volume","Emini_High","Emini_Low","!tomorrowPrice"])
+    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
     return trainingData
 
 
