@@ -88,7 +88,7 @@ def configureDateData(OHLC_data):
 
 def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of data will be sacrificed when .dropna() is called
     #Idea --- 256DaySum(marketChange*stockChange)/256DaySum(marketChange**2)
-    columnNameRn = "%sDay-RollingBeta"%daysToRoll
+    columnNameRn = "%sDay_RollingBeta"%daysToRoll
     OHLC_data[columnNameRn] = None
     for i in range(len(OHLC_data)):
         if i < daysToRoll:
@@ -100,7 +100,7 @@ def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of 
                 covarianceSum += OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("%changeToday")]*OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("SnP_%Change")]
                 varianceSum += (OHLC_data.iloc[i-j, OHLC_data.columns.get_loc("SnP_%Change")])**2
             OHLC_data.iloc[i, OHLC_data.columns.get_loc(columnNameRn)] = covarianceSum/varianceSum
-    return OHLC_data.dropna()
+    OHLC_data.dropna(inplace = True)
 
 def implementIndicators(OHLC_data):
     for j in range(3,5):
