@@ -81,3 +81,11 @@ tunedDict = optimizeRF(trainingData)
 timeDiff = float(time.time()) - startTime
 print(tunedDict)
 print("Time Taken for Optimization:        %s Seconds" %timeDiff)
+
+#Optimized Hyperparameters: (Sequence --- RF,then GBTree)
+"""{'Max Samples': np.float64(0.45), 'Max Terminal Nodes': 300, 'n_estimators': 55, 'RMSE Score': np.float64(0.008903400601381638)}
+{'Bootstrap Size': np.float64(0.6), 'Learning Rate': np.float64(0.02), 'n_estimators': 125, 'RMSE Score': np.float64(0.009093142016899154)}
+Time Taken for Optimization:        29067.217761039734 Seconds"""
+#Note that this is the most optimized set of hyperparameters out of approximately 35 000 iterations
+
+#
