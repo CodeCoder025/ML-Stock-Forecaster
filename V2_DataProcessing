@@ -23,7 +23,7 @@ def handleOHLC(ticker,startDate,endDate):
     OHLC_data["high%AboveOpen"] = (OHLC_data["High"]-OHLC_data["Open"])/OHLC_data["Open"]
     OHLC_data["low%BelowClose"] = (OHLC_data["Close"]-OHLC_data["Low"])/OHLC_data["Close"]
     OHLC_data["low%BelowOpen"] = (OHLC_data["Open"]-OHLC_data["Low"])/OHLC_data["Open"]
-    OHLC_data["Spread"] = (OHLC_data["High"]-OHLC_data["Low"])/OHLC_data["Low"]
+    OHLC_data["Spread"] = (OHLC_data["High"]-OHLC_data["Low"])/(OHLC_data["Open"]+OHLC_data["Close"])
     OHLC_data["volumeToSpreadRatio"] = OHLC_data["Volume"]/OHLC_data["Spread"] #Sniffs insitutional trading if high vol to spread
     SnP500["SnP_%Spread"] = abs(SnP500["High"]-SnP500["Low"])/((SnP500["Open"]+SnP500["Close"])/2)
     SnP500["SnP_%Change"] = (SnP500["Close"]-SnP500["Open"])/SnP500["Open"]
@@ -32,7 +32,21 @@ def handleOHLC(ticker,startDate,endDate):
                                         "High": "SnP_High",
                                         "Low":"SnP_Low",
                                         "Volume":"SnP_Volume"})
+    GoldFutures = yf.download("GC=F", start = startDate, end = endDate).reset_index()
+    GoldFutures.columns = GoldFutures.columns.get_level_values(0)
+    GoldFutures["Gold_%Spread"] = abs(GoldFutures["High"]-GoldFutures["Low"])/((GoldFutures["Open"]+GoldFutures["Close"])/2)
+    GoldFutures["Gold_%Change"] = (GoldFutures["Close"]-GoldFutures["Open"])/GoldFutures["Open"]
+    GoldFutures = GoldFutures.rename(columns = {"Open":"GoldFutures_Open",
+                                                "Close":"GoldFutures_Close",
+                                                "High":"GoldFutures_High",
+                                                "Low":"GoldFutures_Low",
+                                                "Volume":"GoldFutures_Volume"})
     OHLC_data = pd.merge(OHLC_data, SnP500, on = "Date", how = "inner")
+    OHLC_data = pd.merge(OHLC_data, GoldFutures, on = "Date", how = "inner")
+    OHLC_data["stockToSnP_Spread"] = OHLC_data["Spread"]/OHLC_data["SnP_%Spread"]
+    OHLC_data["stockToGold_Spread"] = OHLC_data["Spread"]/OHLC_data["Gold_%Spread"]
+    OHLC_data["stockToGold_OutperformanceMultiplier"] = (OHLC_data["%changeToday"]-OHLC_data["Gold_%Change"])/OHLC_data["%changeToday"]
+    OHLC_data["stockToSnP_OutperformanceMultiplier"] = (OHLC_data["%changeToday"]-OHLC_data["SnP_%Change"])/OHLC_data["%changeToday"]
     OHLC_data["!tomorrowPrice"] = OHLC_data["Close"].shift(-1)
     OHLC_data.dropna(inplace = True)
     OHLC_data["%changeTomorrow"] = (OHLC_data["!tomorrowPrice"]-OHLC_data["Close"])/OHLC_data["Close"]#This is the target variable
@@ -102,6 +116,11 @@ def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of 
             OHLC_data.iloc[i, OHLC_data.columns.get_loc(columnNameRn)] = covarianceSum/varianceSum
     OHLC_data.dropna(inplace = True)
 
+def earningsReleaseWarning(OHLC_data): #Let the ML model know when earnings release is coming + how many days till next earnings release
+  ticker = yf.Ticker(OHLC_data.iloc[0,0])
+  earningsData = ticker.get_earnings_dates.reset_index() #This gives a dataframe of earnings date, expected eps, actual eps, and %surprise. Think carefully of how this data can be used
+
+
 def implementIndicators(OHLC_data):
     for j in range(3,5):
       xDMA_column("Volume",j**2,OHLC_data)
@@ -118,6 +137,7 @@ def implementIndicators(OHLC_data):
     
     OHLC_data.dropna(inplace=True)
     getRollingBetas(OHLC_data, 252)
+    earningsReleaseWarning(OHLC_data)
     encoder = preprocessing.OneHotEncoder()
     categoricalFeatures = ["Month","Day","DayOfMonth"]
     for feature in categoricalFeatures:
@@ -129,7 +149,7 @@ def implementIndicators(OHLC_data):
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
     
-    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
+    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
     return trainingData
 
 
