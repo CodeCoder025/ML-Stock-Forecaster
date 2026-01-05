@@ -15,6 +15,7 @@ STATUS:  **V2 IN PROGRESS**
 
 Version 2 Notes:
   -   Enhanced Feature Engineering with more core stock metrics + macro metrics
+  -   Unintuitive, atypical metrics using PCA
   -   Optimize a better set of hyperparameters for GBM models --- https://chatgpt.com/s/t_69549a273b8081918e0cad8db7f99203
   -   Ensure hyperparameter optimization code is computationally feasible
 
