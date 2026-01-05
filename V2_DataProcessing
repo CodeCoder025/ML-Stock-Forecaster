@@ -116,10 +116,9 @@ def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of 
             OHLC_data.iloc[i, OHLC_data.columns.get_loc(columnNameRn)] = covarianceSum/varianceSum
     OHLC_data.dropna(inplace = True)
 
-def earningsReleaseWarning(OHLC_data): #Let the ML model know when earnings release is coming + how many days till next earnings release
-  ticker = yf.Ticker(OHLC_data.iloc[0,0])
-  earningsData = ticker.get_earnings_dates.reset_index() #This gives a dataframe of earnings date, expected eps, actual eps, and %surprise. Think carefully of how this data can be used
-
+def getBetaRatios(OHLC_data): #Find ratio of current beta to rolling beta
+  betaColumnIndices = []
+  pass
 
 def implementIndicators(OHLC_data):
     for j in range(3,5):
@@ -137,7 +136,9 @@ def implementIndicators(OHLC_data):
     
     OHLC_data.dropna(inplace=True)
     getRollingBetas(OHLC_data, 252)
-    earningsReleaseWarning(OHLC_data)
+    getRollingBetas(OHLC_data, 100)
+    OHLC_data["beta_today"] = OHLC_data["%changeToday"]/OHLC_data["SnP_%Change"] #Can try comparing beta of stock to beta of gold
+    
     encoder = preprocessing.OneHotEncoder()
     categoricalFeatures = ["Month","Day","DayOfMonth"]
     for feature in categoricalFeatures:
