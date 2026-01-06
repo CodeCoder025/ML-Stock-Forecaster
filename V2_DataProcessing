@@ -66,7 +66,7 @@ def xDMA_column(columnName,x, OHLC_data): #it is important to remember that the 
                 cumSum += OHLC_data.iloc[index-i, OHLC_data.columns.get_loc(columnName)]
             MA = cumSum/x
             OHLC_data.iloc[index,newColumnIndex] = row[columnName]/MA
-            
+
 def checkForCrossover(metric1, metric2, rowIndex, OHLC_data,metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
     #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
     if metric1Multiplier:
@@ -117,7 +117,7 @@ def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of 
     OHLC_data.dropna(inplace = True)
 
 def getBetaRatios(OHLC_data): #Find ratio of current beta to rolling beta
-  betaColumnIndices = []
+  betaColumnIndices = [OHLC_data.columns.get_loc(i) in OHLC_data.columns.to_list() if i.endswith("Day_RollingBeta")]
   pass
 
 def implementIndicators(OHLC_data):
@@ -129,16 +129,16 @@ def implementIndicators(OHLC_data):
     OHLC_data=OHLC_data.reset_index()
     OHLC_data.drop(columns=["index"], inplace=True)
     configureDateData(OHLC_data)
-    
+
     for j in range(3,5):
       OHLC_data["Price-%sD_crossover"%j**2] = [checkForCrossover("Close","CloseTo%sDay_SMA"%j**2,i, OHLC_data,metric2Multiplier = "Close") for i in range(len(OHLC_data))]
       OHLC_data["SnP-%sD_crossover"%j**2] = [checkForCrossover("SnP_Close","SnP_CloseTo%sDay_SMA"%j**2,i,OHLC_data, metric2Multiplier = "SnP_Close") for i in range(len(OHLC_data))]
-    
+
     OHLC_data.dropna(inplace=True)
     getRollingBetas(OHLC_data, 252)
     getRollingBetas(OHLC_data, 100)
     OHLC_data["beta_today"] = OHLC_data["%changeToday"]/OHLC_data["SnP_%Change"] #Can try comparing beta of stock to beta of gold
-    
+
     encoder = preprocessing.OneHotEncoder()
     categoricalFeatures = ["Month","Day","DayOfMonth"]
     for feature in categoricalFeatures:
@@ -149,7 +149,7 @@ def implementIndicators(OHLC_data):
       OHLC_data = OHLC_data.reset_index()
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
-    
+
     trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
     return trainingData
 
