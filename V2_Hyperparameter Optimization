@@ -1,1 +1,83 @@
+#Hyperparameter optimization
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 
+startTime = time.time()
+def optimizeRF(dataset1):
+    nRows, nCols = trainingData.shape
+    trainData, testData = chronologicalSplit(scaleData(trainingData), 0.8)
+    n_estimatorList = list(range(50, 400, 5))
+    max_samplesList = np.arange(0.2, 0.9, 0.05) #gotta do this because range() cannot take floats
+    max_leaf_nodeList = list(range(100, 450,5))
+    n_estimatorsHPlist = []
+    max_samplesHPlist = []
+    max_leaf_nodesHPlist = []
+    RMSElist = []
+    x = 0
+    for i in range(len(n_estimatorList)):
+        for j in range(len(max_samplesList)):
+            for k in range(len(max_leaf_nodeList)):
+                n_estimatorsHPlist.append(n_estimatorList[i])
+                max_samplesHPlist.append(max_samplesList[j])
+                max_leaf_nodesHPlist.append(max_leaf_nodeList[k])
+                _,_,randomForestScore = deployRandomForest(trainData, testData,
+                                                           n_dTrees = n_estimatorList[i],
+                                                           bootstrapSize = max_samplesList[j],
+                                                           max_leaf_nodes = max_leaf_nodeList[k])
+                RMSElist.append(randomForestScore)
+                x+=1
+                print("Progress: %s/%s"%(x, len(n_estimatorList)*len(max_samplesList)*len(max_leaf_nodeList)))
+    bestCombiIndex = RMSElist.index(min(RMSElist))
+    fig = plt.figure() #How to make 4-metric plots --- https://chatgpt.com/s/t_6953e151d9988191b7bc7da461e03aa0
+    ax = fig.add_subplot(projection = "3d")
+    scatPlot = ax.scatter(n_estimatorsHPlist, max_leaf_nodesHPlist, RMSElist,c=max_samplesHPlist, cmap = "viridis")
+    ax.scatter(n_estimatorsHPlist[bestCombiIndex],max_leaf_nodesHPlist[bestCombiIndex],RMSElist[bestCombiIndex], s=80, marker = "X", label = "OPtimum")
+    ax.set_xlabel("n_estimators")
+    ax.set_ylabel("Maximum Terminal Nodes")
+    ax.set_zlabel("RMSE")
+    plt.colorbar(scatPlot, label = "Bootstrap Size")
+    plt.show()
+    return {"Max Samples" : max_samplesHPlist[bestCombiIndex],"Max Terminal Nodes":max_leaf_nodesHPlist[bestCombiIndex],"n_estimators":n_estimatorsHPlist[bestCombiIndex],"RMSE Score":RMSElist[bestCombiIndex]}
+
+def optimizeGBTree(dataset1, booster = "gbtree"):
+    trainData, testData = dataset1
+    bootstrapSizeList = np.arange(0.5,0.9,0.1)
+    n_estimatorsList = list(range(100, 450, 25))
+    learning_rateList = np.arange(0.02,0.42,0.02)
+    n_estimatorsHPlist = []
+    max_samplesHPlist = []
+    learning_rateHPlist = []
+    RMSElist = []
+    x = 0
+    for i in range(len(n_estimatorsList)):
+        for j in range(len(bootstrapSizeList)):
+            for k in range(len(learning_rateList)):
+                n_estimatorsHPlist.append(n_estimatorsList[i])
+                max_samplesHPlist.append(bootstrapSizeList[j])
+                learning_rateHPlist.append(learning_rateList[k])
+                _,_,modelScore = deployGBM(trainData, testData,
+                                           bootstrapSize = bootstrapSizeList[j],
+                                           n_estimators = n_estimatorsList[i],
+                                           learning_rate = learning_rateList[k],
+                                           booster = "gbtree")
+                RMSElist.append(modelScore)
+                x+=1
+                print("Iterations Complete: %s/%s"%(x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
+    bestIndex = RMSElist.index(min(RMSElist))
+    fig = plt.figure()
+    ax = fig.add_subplot(projection = "3d")
+    scat = ax.scatter(n_estimatorsHPlist, learning_rateHPlist,RMSElist, c=max_samplesHPlist, cmap = "viridis")
+    ax.scatter(n_estimatorsHPlist[bestIndex],learning_rateHPlist[bestIndex],RMSElist[bestIndex], marker = "X", label = "Optimum", s= 80)
+    ax.set_xlabel("n_estimators")
+    ax.set_zlabel("RMSE")
+    ax.set_ylabel("Learning Rate")
+    plt.colorbar(scat, label = "Bootstrap Size")
+    plt.show()
+    return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
+
+optimizeGBTree(dataset1)
+tunedDict = optimizeRF(dataset1)
+timeDiff = float(time.time()) - startTime
+print(tunedDict)
+print("Time Taken for Optimization:        %s Seconds" %timeDiff)
