@@ -29,4 +29,4 @@ Version 3 Notes:
 
 
 **USER BEWARES**:
-- V2 of data handling uses PCA, which requires scaled data. Thus, the output training data from the V2 data handling program is ALREADY scaled
+- V2 of data handling uses PCA, which requires scaled data. Thus, the output training data from the V2 data handling program is ALREADY scaled --- DO NOT run MinMaxScaler again!!!
