@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
 #IMPORTANT REMINDER: I cannot have the model predict today's price change using today's volume --- i can only use the data which I had before today. Prices to predict are close prices, not high,low, or open!
 #Columns which has a name starting with "!" are columns which CANNOT be given to the model in predicting prices.
 #Idea: Can also one-hot encode for crossovers
@@ -123,6 +124,12 @@ def getBetaRatios(OHLC_data): #Find ratio of current beta to rolling beta
   for i in range(len(newColumnNameList)):
     OHLC_data[newColumnNameList[i]] = OHLC_data["beta_today"]/OHLC_data[OHLC_data.columns[betaColumnIndices[i]]]
 
+def scaleData(trainingData):
+    minMaxScaler = MinMaxScaler(feature_range=(0,1))
+    scaledTrainData = pd.DataFrame(minMaxScaler.fit_transform(trainingData.drop(columns=["%changeTomorrow"])), columns = [i for i in trainingData.columns.to_list() if i != "%changeTomorrow"])
+    scaledTrainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
+    return scaledTrainData
+
 def blindFeatureEngineering(n_iter):
   pass
 
@@ -155,14 +162,8 @@ def implementIndicators(OHLC_data):
       OHLC_data = OHLC_data.reset_index()
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
-
-    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
-    return trainingData
-
-
-trainingData = implementIndicators(handleOHLC("KO","2010-01-01","2015-01-01"))
-
-    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
+    OHLC_data = OHLC_data.replace([np.inf, -np.inf], np.nan).dropna()
+    trainingData = scaleData(OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"]))
     return trainingData
 
 
