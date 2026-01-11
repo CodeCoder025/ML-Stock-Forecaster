@@ -25,6 +25,7 @@ Version 3 Notes:
   -   Create a two-layer ML workflow --- feature engineered data will first be fed into a classifier model which creates a column of its predictions on whether the stock price would move upwards or downwards. This column is then added to the dataframe and subsequently fed into the regressors
   -   Find a way to make the model resistant to price/volatility shocks caused by news / earnings (maybe strategic abstinence from trading? But then will have to heavily adjust error metric to exclude that day from RMSE component)
   -   Move away from yfinance to institunional data providers for historical TICK, TRIN, etc
+  -   Strategic use of PCA --- optimize for PCA hyperparameters (e.g. what is the sweet spot of variance reduction and dimensionality of output?). Can also experiment with running PCA only on select columns
 
 
 
