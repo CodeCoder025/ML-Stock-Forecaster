@@ -3,6 +3,7 @@ import numpy as np
 import yfinance as yf
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
 #IMPORTANT REMINDER: I cannot have the model predict today's price change using today's volume --- i can only use the data which I had before today. Prices to predict are close prices, not high,low, or open!
 #Columns which has a name starting with "!" are columns which CANNOT be given to the model in predicting prices.
 #Idea: Can also one-hot encode for crossovers
@@ -130,9 +131,6 @@ def scaleData(trainingData):
     scaledTrainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
     return scaledTrainData
 
-def blindFeatureEngineering(n_iter):
-  pass
-
 def implementIndicators(OHLC_data):
     for j in range(3,5):
       xDMA_column("Volume",j**2,OHLC_data)
@@ -164,7 +162,28 @@ def implementIndicators(OHLC_data):
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
     OHLC_data = OHLC_data.replace([np.inf, -np.inf], np.nan).dropna()
     trainingData = scaleData(OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"]))
-    return trainingData
-
+    return trainingData.dropna()
 
 trainingData = implementIndicators(handleOHLC("KO","2010-01-01","2015-01-01"))
+def chronologicalSplit(scaledTrainData,x):
+    nRows, _ = scaledTrainData.shape
+    trainingRows = int(x*nRows)
+    trainingSet = scaledTrainData.loc[0:trainingRows]
+    testSet = scaledTrainData.loc[trainingRows+1:]
+    return trainingSet, testSet
+
+trainSet, testSet = chronologicalSplit(trainingData, 0.8)
+dataset1 = [trainSet, testSet]
+def blindFeatureEngineering(setOfSets):
+  trainSet = setOfSets[0]
+  testSet = setOfSets[1]
+  pcaModel = PCA(n_components=0.95).fit(trainSet)
+  trainOutput= pd.DataFrame(pcaModel.transform(trainSet))
+  testOutput = pd.DataFrame(pcaModel.transform(testSet))
+  integratedTrainData = trainSet.merge(trainOutput, left_index = True, right_index = True)
+  integratedTestData = testSet.merge(testOutput, left_index = True, right_index = True) #wow i just reallised .join() is a shortcut of .merge-ing by index
+  solePCA = [trainOutput, testOutput]
+  integratedPCA = [integratedTrainData, integratedTestData]
+  return solePCA, integratedPCA
+
+solePCA, integratedPCA = blindFeatureEngineering(dataset1)
