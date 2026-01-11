@@ -1,16 +1,1 @@
-Control Variables                                                       Variables For Experimentation
-___________________________________                                     ______________________________________
-Stock to Predict        KO                                              Dataset Version
-Start Period            2010-01-01                                      Ensembling Rules (Manual)
-End Period              2015-01-01                                      Hyperparameters
-Test Set                Latter 20% (sorted chronologically)             Model Variety
-
-Dataset          Model Training Code        Model Optimization Code                Best RMSE Score        Remarks
-________         _____________________      ________________________               ________________       _________
-V1               V1                         V1                                     0.0089034              Best RMSE achieved by RF model
-
-
-
-
-
-
+https://docs.google.com/spreadsheets/d/1U7xKEoXZYvPtmEhY1NFm7UsDHOon7xcm5cucq5VQHNs/edit?gid=0#gid=0
