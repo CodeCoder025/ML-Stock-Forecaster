@@ -61,11 +61,8 @@ def xDMA_column(columnName,x, OHLC_data): #it is important to remember that the 
         if index < x:
             continue
         else:
-            cumSum = 0
-            for i in range(0,x):
-                cumSum += OHLC_data.iloc[index-i, OHLC_data.columns.get_loc(columnName)]
-            MA = cumSum/x
-            OHLC_data.iloc[index,newColumnIndex] = row[columnName]/MA
+            OHLC_data[newColumnName] = OHLC_data[columnName]/OHLC_data[columnName].rolling(x).mean()
+    
 
 def checkForCrossover(metric1, metric2, rowIndex, OHLC_data,metric1Multiplier = None, metric2Multiplier = None): #OOH i just realised that metricMultipliers will be necessary since most columns in the dataframe are ratio or percentage-based
     #function will return 1 if metric1 crosses over metric 2, -1 if 1 falls below 2 (ie 2 over 1), 0 if neither.
@@ -101,7 +98,6 @@ def configureDateData(OHLC_data):
     OHLC_data["Day"] = OHLC_data["Date"].dt.dayofweek
 
 def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of data will be sacrificed when .dropna() is called
-    #Idea --- 256DaySum(marketChange*stockChange)/256DaySum(marketChange**2)
     columnNameRn = "%sDay_RollingBeta"%daysToRoll
     OHLC_data[columnNameRn] = None
     for i in range(len(OHLC_data)):
@@ -117,7 +113,17 @@ def getRollingBetas(OHLC_data, daysToRoll): #Problem with this is that a LOT of 
     OHLC_data.dropna(inplace = True)
 
 def getBetaRatios(OHLC_data): #Find ratio of current beta to rolling beta
-  betaColumnIndices = [OHLC_data.columns.get_loc(i) in OHLC_data.columns.to_list() if i.endswith("Day_RollingBeta")]
+  betaColumnIndices = [OHLC_data.columns.get_loc(i)
+                       for i in OHLC_data.columns.to_list()
+                       if i.endswith("Day_RollingBeta")]
+  betaDayDenominator = [int(OHLC_data.columns[i].split("Day_")[0])
+                        for i in betaColumnIndices]
+  newColumnNameList = ["betaTo%sDayRollingBeta"%i
+                       for i in betaDayDenominator]
+  for i in range(len(newColumnNameList)):
+    OHLC_data[newColumnNameList[i]] = OHLC_data["beta_today"]/OHLC_data[OHLC_data.columns[betaColumnIndices[i]]]
+
+def blindFeatureEngineering(n_iter):
   pass
 
 def implementIndicators(OHLC_data):
@@ -138,7 +144,7 @@ def implementIndicators(OHLC_data):
     getRollingBetas(OHLC_data, 252)
     getRollingBetas(OHLC_data, 100)
     OHLC_data["beta_today"] = OHLC_data["%changeToday"]/OHLC_data["SnP_%Change"] #Can try comparing beta of stock to beta of gold
-
+    getBetaRatios(OHLC_data)
     encoder = preprocessing.OneHotEncoder()
     categoricalFeatures = ["Month","Day","DayOfMonth"]
     for feature in categoricalFeatures:
@@ -149,6 +155,12 @@ def implementIndicators(OHLC_data):
       OHLC_data = OHLC_data.reset_index()
       OHLC_data.drop(columns=["index"],inplace=True)
       OHLC_data = pd.merge(OHLC_data, oneHotDF, left_index = True, right_index = True)
+
+    trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
+    return trainingData
+
+
+trainingData = implementIndicators(handleOHLC("KO","2010-01-01","2015-01-01"))
 
     trainingData = OHLC_data.drop(columns = ["Date","StockName","Day","GoldFutures_High","GoldFutures_Low","GoldFutures_Open","GoldFutures_Close","GoldFutures_Volume","DayOfMonth","Close","High","Low","Month","Open","Volume","SnP_Close","SnP_Open","SnP_Volume","SnP_High","SnP_Low","!tomorrowPrice"])
     return trainingData
