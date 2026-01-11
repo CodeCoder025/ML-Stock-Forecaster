@@ -29,5 +29,5 @@ Version 3 Notes:
 
 
 **USER BEWARES**:
-- V2 of data handling uses PCA, which requires scaled data. Thus, the output training data from the V2 data handling program is ALREADY scaled --- DO NOT run MinMaxScaler again!!!
+- V2 of data handling uses PCA, which requires scaled data and the train set. Thus, the output training data from the V2 data handling program is ALREADY scaled, and train_test_split has been done --- DO NOT these processes again!!!
 - PCA does not work for (and in fact usually harms) tree models (like RF and GBTree) and GBlinear, so only apply to linear reg model. 
