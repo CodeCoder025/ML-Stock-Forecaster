@@ -1,0 +1,91 @@
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import accuracy_score
+from xgboost import XGBRegressor
+def scaleData(trainingData):
+    minMaxScaler = MinMaxScaler(feature_range=(0,1))
+    scaledTrainData = pd.DataFrame(minMaxScaler.fit_transform(trainingData.drop(columns=["%changeTomorrow"])), columns = [i for i in trainingData.columns.to_list() if i != "%changeTomorrow"])
+    scaledTrainData["%changeTomorrow"] = trainingData["%changeTomorrow"]
+    return scaledTrainData
+
+def chronologicalSplit(scaledTrainData,x):
+    nRows, _ = scaledTrainData.shape
+    trainingRows = int(x*nRows)
+    trainingSet = scaledTrainData.loc[0:trainingRows]
+    testSet = scaledTrainData.loc[trainingRows+1:]
+    return trainingSet, testSet
+
+def deployLinearModel(trainData, testData):
+  linearRegModel = LinearRegression()
+  linearRegModel.fit(trainData.drop(columns = ["%changeTomorrow"]), trainData["%changeTomorrow"])
+  linearRegModelPreds =  linearRegModel.predict(testData.drop(columns=["%changeTomorrow"]))
+  return linearRegModelPreds, linearRegModel.coef_, linearRegModel.intercept_, compute_RMSE(linearRegModelPreds, testData["%changeTomorrow"])
+
+def deployRandomForest(trainData, testData, bootstrapSize = 0.7, n_dTrees = 150, max_leaf_nodes = 200, max_features = "sqrt"):
+    model = RandomForestRegressor(n_jobs=-1,
+                                  max_samples = bootstrapSize,
+                                  n_estimators = n_dTrees,
+                                  max_leaf_nodes = max_leaf_nodes,
+                                  max_features = max_features)
+    model.fit(trainData.drop(columns=["%changeTomorrow"]),
+              trainData["%changeTomorrow"])
+    randomForestPreds = model.predict(testData.drop(columns=["%changeTomorrow"]))
+    return randomForestPreds, model.feature_importances_,compute_RMSE(randomForestPreds, testData["%changeTomorrow"])
+
+def deployGBM(trainData, testData, n_estimators = 100, learning_rate = 0.6, booster = "gbtree", bootstrapSize = 0.7, max_features = "sqrt"):
+    if max_features == "sqrt":
+        max_features = int((len(trainData.columns.to_list())-1)**0.5)/(len(trainData.columns.to_list())-1)
+    GBM = XGBRegressor(n_estimators = n_estimators,
+                      learning_rate = learning_rate,
+                      booster = booster,
+                      subsample = bootstrapSize,
+                      colsample_bytree = max_features)
+    GBM.fit(trainData.drop(columns=["%changeTomorrow"]), trainData["%changeTomorrow"])
+    GBMPreds = GBM.predict(testData.drop(columns=["%changeTomorrow"]))
+    if booster == "gbtree":
+        weightsDict = GBM.get_booster().get_score(importance_type = "gain")
+    elif booster == "gblinear":
+        weightsDict = GBM.get_booster().get_score(importance_type = "weight")
+    #this one is a bit troublesome because tree-based models may not split trees for every metric provided, and in the case of xgboost if this happens the weight will just be omitted from the output dictionary thus will cause indexing errors later on
+    unusedFeatureIndexes = []
+    for i in range(len(trainData.drop(columns=["%changeTomorrow"]).columns.to_list())):
+        if trainData.drop(columns=["%changeTomorrow"]).columns.to_list()[i] in list(weightsDict.keys()):
+            pass
+        else:
+            unusedFeatureIndexes.append(i)
+    unzippedDict = list(weightsDict.items()) #apparently it is impossible to directly insert a key,value pair at a specific index in a dictionary, so ill have to break it down and reconstruct it
+    for i in unusedFeatureIndexes:
+        unzippedDict.insert(i, (trainData.drop(columns=["%changeTomorrow"]).columns.to_list()[i],0))
+    weightsDict = dict(unzippedDict)
+    weightsList = [i for i in weightsDict.values()]
+    return GBMPreds, weightsList, compute_RMSE(GBMPreds, testData["%changeTomorrow"])
+
+def compute_RMSE(predicted, actual):
+    SE = 0
+    for i in range(len(predicted)):
+        SE += (predicted[i] - actual.iloc[i])**2
+    return (SE/len(predicted))**0.5
+
+def RMSEdumb(testData):
+    meanPred = np.mean([i for i in testData["%changeTomorrow"]])
+    SE = 0
+    for i in testData["%changeTomorrow"]:
+        SE += abs(i - meanPred)**2
+    MSE = SE/len(testData["%changeTomorrow"])
+    return MSE**0.5
+
+def basicDeploy(ticker, startDate = "2010-01-01", endDate = "2015-01-01"):
+    trainingData = implementIndicators(handleOHLC(ticker, startDate, endDate))
+    nRows, nCols = trainingData.shape
+    linearRegModelPreds, linearRegModelCoefs, linearRegModelIntercept, linearRegModelScore = deployLinearModel(*chronologicalSplit(scaleData(trainingData),0.8))
+    randomForestPreds, randomForestWeights, randomForestScore = deployRandomForest(*chronologicalSplit(scaleData(trainingData), 0.8))
+    GBTreePreds, GBTreeWeights, GBTreeScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8))
+    GBLinPreds, GBLinWeights, GBLinScore = deployGBM(*chronologicalSplit(scaleData(trainingData), 0.8), booster = "gblinear")
+    scores = {"Linear Regression" : linearRegModelScore, "Random Forest": randomForestScore,"Gradient Boosting Tree":GBTreeScore,"Gradient Boosting Linear":GBLinScore}
+    weights = {"Linear Regression":linearRegModelCoefs,"Random Forest":randomForestWeights,"Gradient Boosting Tree":GBTreeWeights,"Gradient Boosting Linear":GBLinWeights}
+    predictions = {"Linear Regression":linearRegModelPreds,"Random Forest":randomForestPreds,"Gradient Boosting Tree":GBTreePreds,"Gradient Boosting Linear":GBLinPreds}
+    _,testData = chronologicalSplit(scaleData(trainingData),0.8)
+    return scores, weights, predictions, trainingData, RMSEdumb(testData)
+
+scoreDict, weightsDict, predictionsDict, trainingData, dumbScore = basicDeploy("JNJ")
