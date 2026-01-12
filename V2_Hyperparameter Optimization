@@ -5,8 +5,7 @@ import time
 
 startTime = time.time()
 def optimizeRF(dataset1):
-    nRows, nCols = trainingData.shape
-    trainData, testData = chronologicalSplit(scaleData(trainingData), 0.8)
+    trainData, testData = dataset1
     n_estimatorList = list(range(50, 400, 5))
     max_samplesList = np.arange(0.2, 0.9, 0.05) #gotta do this because range() cannot take floats
     max_leaf_nodeList = list(range(100, 450,5))
