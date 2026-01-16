@@ -6,9 +6,9 @@ import time
 startTime = time.time()
 def optimizeRF(dataset1):
     trainData, testData = dataset1
-    n_estimatorList = list(range(30, 200, 5))
-    max_samplesList = np.arange(0.3, 0.9, 0.02) #gotta do this because range() cannot take floats
-    max_leaf_nodeList = list(range(150, 400,5))
+    n_estimatorList = list(range(50, 400, 5))
+    max_samplesList = np.arange(0.2, 0.9, 0.01) #gotta do this because range() cannot take floats
+    max_leaf_nodeList = list(range(100, 450,5))
     n_estimatorsHPlist = []
     max_samplesHPlist = []
     max_leaf_nodesHPlist = []
@@ -39,7 +39,7 @@ def optimizeRF(dataset1):
     plt.show()
     return {"Max Samples" : max_samplesHPlist[bestCombiIndex],"Max Terminal Nodes":max_leaf_nodesHPlist[bestCombiIndex],"n_estimators":n_estimatorsHPlist[bestCombiIndex],"RMSE Score":RMSElist[bestCombiIndex]}
 
-def optimizeGBTree(dataset1, booster = "gbtree"):
+def optimizeGBTree(dataset1, booster = "gbtree", batchRun = False, batchNumber = None):
     trainData, testData = dataset1
     bootstrapSizeList = np.arange(0.5,0.9,0.1)
     n_estimatorsList = list(range(100, 450, 25))
@@ -62,7 +62,10 @@ def optimizeGBTree(dataset1, booster = "gbtree"):
                                            booster = "gbtree")
                 RMSElist.append(modelScore)
                 x+=1
-                print("Iterations Complete: %s/%s"%(x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
+                if batchRun == False:
+                  print("Iterations Complete: %s/%s"%(x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
+                else:
+                  print("Batch Number:  %s. Iterations Complete: %s/%s"%(batchNumber, x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
     bestIndex = RMSElist.index(min(RMSElist))
     fig = plt.figure()
     ax = fig.add_subplot(projection = "3d")
@@ -74,6 +77,15 @@ def optimizeGBTree(dataset1, booster = "gbtree"):
     plt.colorbar(scat, label = "Bootstrap Size")
     plt.show()
     return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
+
+def batchOptimization(colBatchSize = "root"):
+  pass
+
+optimizeGBTree(dataset1)
+tunedDict = optimizeRF(dataset1)
+timeDiff = float(time.time()) - startTime
+print(tunedDict)
+print("Time Taken for Optimization:        %s Seconds" %timeDiff)
 
 optimizeGBTree(dataset1)
 tunedDict = optimizeRF(dataset1)
