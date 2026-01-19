@@ -80,12 +80,16 @@ def optimizeGBTree(dataset1, booster = "gbtree", batchRun = False, batchNumber =
     return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
 
 def batchOptimization(dataset1, colBatchSize = "root"):
-  trainData, testData = []
+  trainData, testData = dataset1
   if colBatchSize == "root":
     colBatchSize = int((len(trainData.columns.to_list()))**0.5)
   batchedTrain = pd.DataFrame()
   batchedTest = pd.DataFrame()
-  columnsToUse = random.sample((0,len(trainData.columns.to_list())), k = colBatchSize)
+  columnsToUse = random.sample(range(0,len(trainData.columns.to_list())), k = colBatchSize)
+  for i in columnsToUse:
+    batchedTrain[trainData.columns.to_list()[i]] = trainData[trainData.columns.to_list()[i]]
+    batchedTest[trainData.columns.to_list()[i]] = testData[trainData.columns.to_list()[i]]
+  
 
 
 optimizeGBTree(dataset1)
