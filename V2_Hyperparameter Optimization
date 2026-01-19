@@ -79,17 +79,35 @@ def optimizeGBTree(dataset1, booster = "gbtree", batchRun = False, batchNumber =
     plt.show()
     return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
 
-def batchOptimization(dataset1, colBatchSize = "root"):
+def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
   trainData, testData = dataset1
   if colBatchSize == "root":
     colBatchSize = int((len(trainData.columns.to_list()))**0.5)
-  batchedTrain = pd.DataFrame()
-  batchedTest = pd.DataFrame()
-  columnsToUse = random.sample(range(0,len(trainData.columns.to_list())), k = colBatchSize)
-  for i in columnsToUse:
-    batchedTrain[trainData.columns.to_list()[i]] = trainData[trainData.columns.to_list()[i]]
-    batchedTest[trainData.columns.to_list()[i]] = testData[trainData.columns.to_list()[i]]
-  
+  dataDict = {}
+  for j in range(batchesToDo):
+    batchedTrain = pd.DataFrame()
+    batchedTest = pd.DataFrame()
+    columnsToUse = random.sample(range(0,len(trainData.columns.to_list())), k = colBatchSize)
+    columnsToUseString = ""
+    for i in columnsToUse:
+      batchedTrain[trainData.columns.to_list()[i]] = trainData[trainData.columns.to_list()[i]]
+      batchedTest[trainData.columns.to_list()[i]] = testData[trainData.columns.to_list()[i]]
+      columnsToUseString += str(i)
+    batchedDataset = [batchedTrain, batchedTest]
+    batchData = optimizeRF(batchedDataset, batchRun = True, batchNumber = j)
+    batchData = batchData.values() #Order of values in batchdata ---> Max Samples, Max Terminal Nodes, n_estimators, RMSE Score 
+    dataDict[columnsToUseString] = batchData
+  bestScoreIndex = None
+  iterationCounter = -1 #Zero-based indexing
+  bestRMSE = 0
+  for columnsUsed, outputResult in dataDict.items():
+    iterationCounter+=1
+    if bestRMSE == 0 or bestRMSE >= outputResult[3]:
+      bestRMSE = outputResult[3]
+      #How to find index position of best RMSE? Need to account for possibility that two batches end up with the same RMSE
+    else:
+      pass
+    
 
 
 optimizeGBTree(dataset1)
