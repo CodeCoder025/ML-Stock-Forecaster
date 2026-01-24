@@ -17,8 +17,6 @@ Version 2 Notes:
   -   Enhanced Feature Engineering with more core stock metrics + macro metrics
   -   Include hidden state proxy in feature engineering
   -   Unintuitive, atypical metrics using PCA
-  -   Optimize a better set of hyperparameters for GBM models --- https://chatgpt.com/s/t_69549a273b8081918e0cad8db7f99203
-  -   Ensure hyperparameter optimization code is computationally feasible
   -   Iterative optimization for engineered features --- iteratively expose model to different segments of dataframe (can be random, or with iterative structure) to see which bootstrap it performs best with
 
 
@@ -27,6 +25,8 @@ Version 3 Notes:
   -   Find a way to make the model resistant to price/volatility shocks caused by news / earnings (maybe strategic abstinence from trading? But then will have to heavily adjust error metric to exclude that day from RMSE component)
   -   Move away from yfinance to institunional data providers for historical TICK, TRIN, etc
   -   Strategic use of PCA --- optimize for PCA hyperparameters (e.g. what is the sweet spot of variance reduction and dimensionality of output?). Can also experiment with running PCA only on select columns
+  -   Optimize a better set of hyperparameters for GBM models --- https://chatgpt.com/s/t_69549a273b8081918e0cad8db7f99203
+  -   Ensure hyperparameter optimization code is computationally feasible
 
 
 
