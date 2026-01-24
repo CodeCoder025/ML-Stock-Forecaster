@@ -7,9 +7,16 @@ import random
 startTime = time.time()
 def optimizeRF(dataset1,batchRun = False, batchNumber = None):
     trainData, testData = dataset1
-    n_estimatorList = list(range(50, 400, 5))
-    max_samplesList = np.arange(0.2, 0.9, 0.01) #gotta do this because range() cannot take floats
-    max_leaf_nodeList = list(range(100, 450,5))
+    if batchRun == False:
+      # 442 750 iterations
+      n_estimatorList = list(range(5, 120, 1))
+      max_samplesList = np.arange(0.05, 0.6, 0.01) #gotta do this because range() cannot take floats
+      max_leaf_nodeList = list(range(100, 450,5))
+    elif batchRun == True:
+      # 15 600 iterations
+      n_estimatorList = list(range(40, 120, 2))
+      max_samplesList = np.arange(0.3, 0.95, 0.05)
+      max_leaf_nodeList = list(range(200, 350,5))
     n_estimatorsHPlist = []
     max_samplesHPlist = []
     max_leaf_nodesHPlist = []
@@ -40,45 +47,6 @@ def optimizeRF(dataset1,batchRun = False, batchNumber = None):
     plt.show()
     return {"Max Samples" : max_samplesHPlist[bestCombiIndex],"Max Terminal Nodes":max_leaf_nodesHPlist[bestCombiIndex],"n_estimators":n_estimatorsHPlist[bestCombiIndex],"RMSE Score":RMSElist[bestCombiIndex]}
 
-def optimizeGBTree(dataset1, booster = "gbtree", batchRun = False, batchNumber = None):
-    trainData, testData = dataset1
-    bootstrapSizeList = np.arange(0.5,0.9,0.1)
-    n_estimatorsList = list(range(100, 450, 25))
-    learning_rateList = np.arange(0.02,0.42,0.02)
-    n_estimatorsHPlist = []
-    max_samplesHPlist = []
-    learning_rateHPlist = []
-    RMSElist = []
-    x = 0
-    for i in range(len(n_estimatorsList)):
-        for j in range(len(bootstrapSizeList)):
-            for k in range(len(learning_rateList)):
-                n_estimatorsHPlist.append(n_estimatorsList[i])
-                max_samplesHPlist.append(bootstrapSizeList[j])
-                learning_rateHPlist.append(learning_rateList[k])
-                _,_,modelScore = deployGBM(trainData, testData,
-                                           bootstrapSize = bootstrapSizeList[j],
-                                           n_estimators = n_estimatorsList[i],
-                                           learning_rate = learning_rateList[k],
-                                           booster = "gbtree")
-                RMSElist.append(modelScore)
-                x+=1
-                if batchRun == False:
-                  print("Iterations Complete: %s/%s"%(x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
-                else:
-                  print("Batch Number:  %s. Iterations Complete: %s/%s"%(batchNumber, x, len(n_estimatorsList)*len(bootstrapSizeList)*len(learning_rateList)))
-    bestIndex = RMSElist.index(min(RMSElist))
-    fig = plt.figure()
-    ax = fig.add_subplot(projection = "3d")
-    scat = ax.scatter(n_estimatorsHPlist, learning_rateHPlist,RMSElist, c=max_samplesHPlist, cmap = "viridis")
-    ax.scatter(n_estimatorsHPlist[bestIndex],learning_rateHPlist[bestIndex],RMSElist[bestIndex], marker = "X", label = "Optimum", s= 80)
-    ax.set_xlabel("n_estimators")
-    ax.set_zlabel("RMSE")
-    ax.set_ylabel("Learning Rate")
-    plt.colorbar(scat, label = "Bootstrap Size")
-    plt.show()
-    return {"Bootstrap Size" : max_samplesHPlist[bestIndex],"Learning Rate":learning_rateHPlist[bestIndex],"n_estimators":n_estimatorsHPlist[bestIndex],"RMSE Score":RMSElist[bestIndex]}
-
 def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
   trainData, testData = dataset1
   if colBatchSize == "root":
@@ -92,7 +60,7 @@ def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
     for i in columnsToUse:
       batchedTrain[trainData.columns.to_list()[i]] = trainData[trainData.columns.to_list()[i]]
       batchedTest[trainData.columns.to_list()[i]] = testData[trainData.columns.to_list()[i]]
-      columnsToUseString += str(i)
+      columnsToUseString += "%s*"%str(i)
     batchedDataset = [batchedTrain, batchedTest]
     batchData = optimizeRF(batchedDataset, batchRun = True, batchNumber = j)
     batchData = batchData.values() #Order of values in batchdata ---> Max Samples, Max Terminal Nodes, n_estimators, RMSE Score 
@@ -102,13 +70,20 @@ def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
   bestRMSE = 0
   for columnsUsed, outputResult in dataDict.items():
     iterationCounter+=1
-    if bestRMSE == 0 or bestRMSE >= outputResult[3]:
-      bestRMSE = outputResult[3]
-      #How to find index position of best RMSE? Need to account for possibility that two batches end up with the same RMSE
+    if bestRMSE == 0 or bestRMSE >= outputResult[-1]:
+      bestRMSE = outputResult[-1]
+      bestRMSEstat = [i for i in outputResult if i != outputResult[-1]]
+      RMSEbatchData = columnsToUseString.split("*")
     else:
       pass
-    
+  return bestRMSE, bestRMSEstat, RMSEbatchData
 
+bestRMSE, bestRMSEstat, bestRMSEcolumnsList = batchOptimization(dataset1, colBatchSize = "root", 30)
+timeDiff = float(time.time()) - startTime
+print(bestRMSE)
+print(bestRMSEstat)
+print(bestRMSEcolumnsList)
+print("Time Taken for Optimization:        %s Seconds" %timeDiff)
 
 optimizeGBTree(dataset1)
 tunedDict = optimizeRF(dataset1)
