@@ -34,7 +34,10 @@ def optimizeRF(dataset1,batchRun = False, batchNumber = None):
                                                            max_leaf_nodes = max_leaf_nodeList[k])
                 RMSElist.append(randomForestScore)
                 x+=1
-                print("Progress: %s/%s"%(x, len(n_estimatorList)*len(max_samplesList)*len(max_leaf_nodeList)))
+                if batchRun == False:
+                  print("Progress: %s/%s"%(x, len(n_estimatorList)*len(max_samplesList)*len(max_leaf_nodeList)))
+                else:
+                  print("Progress: %s/%s  <-----   Batch Number: %s"%(x, len(n_estimatorList)*len(max_samplesList)*len(max_leaf_nodeList), batchNumber))
     bestCombiIndex = RMSElist.index(min(RMSElist))
     fig = plt.figure() #How to make 4-metric plots --- https://chatgpt.com/s/t_6953e151d9988191b7bc7da461e03aa0
     ax = fig.add_subplot(projection = "3d")
@@ -47,7 +50,7 @@ def optimizeRF(dataset1,batchRun = False, batchNumber = None):
     plt.show()
     return {"Max Samples" : max_samplesHPlist[bestCombiIndex],"Max Terminal Nodes":max_leaf_nodesHPlist[bestCombiIndex],"n_estimators":n_estimatorsHPlist[bestCombiIndex],"RMSE Score":RMSElist[bestCombiIndex]}
 
-def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
+def batchOptimization(dataset1, batchesToDo, colBatchSize = "root"):
   trainData, testData = dataset1
   if colBatchSize == "root":
     colBatchSize = int((len(trainData.columns.to_list()))**0.5)
@@ -56,6 +59,9 @@ def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
     batchedTrain = pd.DataFrame()
     batchedTest = pd.DataFrame()
     columnsToUse = random.sample(range(0,len(trainData.columns.to_list())), k = colBatchSize)
+    targetColumnIndex = trainData.columns.get_loc("%changeTomorrow")
+    if (targetColumnIndex in columnsToUse) == False:
+      columnsToUse.append(targetColumnIndex)
     columnsToUseString = ""
     for i in columnsToUse:
       batchedTrain[trainData.columns.to_list()[i]] = trainData[trainData.columns.to_list()[i]]
@@ -78,15 +84,9 @@ def batchOptimization(dataset1, colBatchSize = "root", batchesToDo):
       pass
   return bestRMSE, bestRMSEstat, RMSEbatchData
 
-bestRMSE, bestRMSEstat, bestRMSEcolumnsList = batchOptimization(dataset1, colBatchSize = "root", 30)
+bestRMSE, bestRMSEstat, bestRMSEcolumnsList = batchOptimization(dataset1, 30, colBatchSize = "root")
 timeDiff = float(time.time()) - startTime
 print(bestRMSE)
 print(bestRMSEstat)
 print(bestRMSEcolumnsList)
-print("Time Taken for Optimization:        %s Seconds" %timeDiff)
-
-optimizeGBTree(dataset1)
-tunedDict = optimizeRF(dataset1)
-timeDiff = float(time.time()) - startTime
-print(tunedDict)
 print("Time Taken for Optimization:        %s Seconds" %timeDiff)
