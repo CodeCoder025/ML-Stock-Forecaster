@@ -11,7 +11,7 @@ Cheers,
 12/10/25 me
 
 
-STATUS:  **V2 IN PROGRESS**
+STATUS:  **V2 COMPLETE**
 
 Version 2 Notes:
   -   Enhanced Feature Engineering with more core stock metrics + macro metrics
